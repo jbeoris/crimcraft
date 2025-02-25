@@ -1,0 +1,19 @@
+[package]
+name = "crimcraft"
+version = "0.1.0"
+edition = "2021"
+description = "A simple Minecraft-like game where you mine and place blocks while avoiding a monster named Crim"
+readme = "README.md"
+
+[dependencies]
+bevy = "0.15.2"
+rand = "0.9.0"
+
+# Enable optimizations for dependencies in debug builds
+[profile.dev.package."*"]
+opt-level = 3
+
+# Enable high optimizations for release builds
+[profile.release]
+opt-level = 3
+lto = true

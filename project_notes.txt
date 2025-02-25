@@ -1,0 +1,64 @@
+# CrimCraft - Project Notes
+
+## Development Environment
+- Using WSL2 on Windows
+- Need to install libasound2-dev for ALSA dependencies
+- Build error with alsa-sys v0.3.1 related to missing system library
+
+## Game Overview
+CrimCraft is a basic Minecraft-like game built with Rust and the Bevy game engine. The player can mine and place blocks in a 3D world while avoiding a monster named Crim.
+
+## Core Features
+- 3D voxel-based world with randomly generated terrain
+- Player starts with a pickaxe by default
+- Mine blocks with left-click
+- Place blocks with right-click
+- Simple AI monster (Crim) that chases the player
+- Build structures to hide from Crim
+
+## Technical Implementation
+- Using Bevy (v0.14.2) for game engine
+- 3D rendering with basic PBR materials
+- WASD + Space/Shift for movement
+- Simple block interaction system
+- Procedurally generated terrain
+- Basic enemy AI with line-of-sight detection
+
+## Project Structure
+- `main.rs` - Main game code
+- Components:
+  - Player - The player character with pickaxe
+  - Crim - The monster that chases the player
+  - Block - Represents a block in the world
+  - Position - Stores the grid position of entities
+- Systems:
+  - `setup` - Initializes the game world
+  - `generate_world` - Creates the terrain and trees
+  - `player_movement` - Handles WASD + Space/Shift movement
+  - `crim_ai` - Makes Crim chase the player when in line of sight
+  - `block_interaction` - Handles mining and placing blocks
+
+## Future Improvements
+- Add different block types with unique properties
+- Improve Crim's AI (pathfinding, more intelligent behavior)
+- Add player inventory system
+- Add crafting system
+- Improve world generation (caves, mountains, etc.)
+- Add survival elements (health, hunger, etc.)
+- Add day/night cycle
+- Add sound effects and music
+- Add simple UI (crosshair, inventory display)
+- Add multiplayer support
+
+## How to Run
+```bash
+cd crimcraft
+cargo run --release
+```
+
+## Controls
+- W/A/S/D - Move
+- Space - Move up
+- Shift - Move down
+- Left Mouse Button - Mine blocks
+- Right Mouse Button - Place blocks
