@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::input::mouse::MouseMotion;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use rand::prelude::*;
 use std::collections::HashMap;
@@ -143,7 +144,7 @@ fn setup(
         Mesh3d(meshes.add(Capsule3d::default())),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: Color::srgb(1.0, 0.0, 0.0),
-            emissive: Color::srgb(0.8, 0.0, 0.0),
+            emissive: Color::srgb(0.8, 0.0, 0.0).into(),
             ..default()
         })),
         Transform::from_xyz(10.0, WORLD_HEIGHT as f32 + 1.0, 10.0),
@@ -158,7 +159,7 @@ fn setup(
             Mesh3d(meshes.add(Sphere::new(0.1))),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: Color::srgb(1.0, 1.0, 0.3),
-                emissive: Color::srgb(1.0, 1.0, 0.3) * 2.0,
+                emissive: Color::srgb(1.0, 1.0, 0.3).into(),
                 ..default()
             })),
             Transform::from_xyz(0.2, 0.3, -0.3),
@@ -168,7 +169,7 @@ fn setup(
             Mesh3d(meshes.add(Sphere::new(0.1))),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: Color::srgb(1.0, 1.0, 0.3),
-                emissive: Color::srgb(1.0, 1.0, 0.3) * 2.0,
+                emissive: Color::srgb(1.0, 1.0, 0.3).into(),
                 ..default()
             })),
             Transform::from_xyz(-0.2, 0.3, -0.3),
@@ -182,7 +183,7 @@ fn generate_world(
     materials: &mut ResMut<Assets<StandardMaterial>>,
     game_world: &mut ResMut<GameWorld>,
 ) {
-    let mut rng = rand::rng();
+    let mut rng = thread_rng();
     let cube_mesh = meshes.add(Cuboid::default());
     
     // Create materials for all block types
@@ -238,27 +239,27 @@ fn generate_world(
     // Generate terrain
     for x in -WORLD_SIZE..WORLD_SIZE {
         for z in -WORLD_SIZE..WORLD_SIZE {
-            let height = (rng.random::<f32>() * 3.0).floor() as i32;
+            let height = (rng.gen::<f32>() * 3.0).floor() as i32;
             
             // Create ground layer with more varied terrain
             for y in 0..=height {
                 // More varied terrain generation
                 let block_type = if y == height && height > 0 {
-                    if rng.random_bool(0.6) { BlockType::Grass } else { BlockType::Dirt }
+                    if rng.gen_bool(0.6) { BlockType::Grass } else { BlockType::Dirt }
                 } else if y == height && height == 0 {
-                    if rng.random_bool(0.7) { BlockType::Sand } else { BlockType::Dirt }
+                    if rng.gen_bool(0.7) { BlockType::Sand } else { BlockType::Dirt }
                 } else if y == 0 {
-                    if rng.random_bool(0.05) { BlockType::Obsidian } else { BlockType::Stone }
-                } else if y < height - 2 && rng.random_bool(0.05) {
+                    if rng.gen_bool(0.05) { BlockType::Obsidian } else { BlockType::Stone }
+                } else if y < height - 2 && rng.gen_bool(0.05) {
                     BlockType::Ore
-                } else if rng.random_bool(0.8) {
+                } else if rng.gen_bool(0.8) {
                     BlockType::Stone
                 } else {
                     BlockType::Dirt
                 };
                 
                 // Create water pools in low areas
-                let is_water_level = height < 1 && y == 1 && rng.random_bool(0.4);
+                let is_water_level = height < 1 && y == 1 && rng.gen_bool(0.4);
                 let final_block_type = if is_water_level { BlockType::Water } else { block_type };
                 
                 game_world.blocks.insert((x, y, z), final_block_type);
@@ -292,8 +293,8 @@ fn generate_world(
 
     // Add some trees and structures
     for _ in 0..20 {
-        let x = rng.random_range(-WORLD_SIZE+2..WORLD_SIZE-2);
-        let z = rng.random_range(-WORLD_SIZE+2..WORLD_SIZE-2);
+        let x = rng.gen_range(-WORLD_SIZE+2..WORLD_SIZE-2);
+        let z = rng.gen_range(-WORLD_SIZE+2..WORLD_SIZE-2);
         
         if let Some(base_height) = game_world.blocks.keys()
             .filter(|(bx, _, bz)| *bx == x && *bz == z)
@@ -301,7 +302,7 @@ fn generate_world(
             .max()
         {
             // Decide what to generate - trees or small structures
-            let structure_type = rng.random_range(0..10);
+            let structure_type = rng.gen_range(0..10);
             
             match structure_type {
                 // Trees (70% chance)
@@ -359,7 +360,7 @@ fn generate_world(
                 
                 // Stone pillar (20% chance)
                 7..=8 => {
-                    let height = rng.random_range(4..8);
+                    let height = rng.gen_range(4..8);
                     for y in base_height + 1..base_height + height {
                         game_world.blocks.insert((x, y, z), BlockType::Stone);
                         
@@ -396,7 +397,7 @@ fn generate_world(
                 
                 // Glass tower (10% chance)
                 9 => {
-                    let height = rng.random_range(3..6);
+                    let height = rng.gen_range(3..6);
                     for y in base_height + 1..base_height + height {
                         game_world.blocks.insert((x, y, z), BlockType::Glass);
                         
@@ -520,16 +521,16 @@ fn crim_ai(
             // Emit particles when spotting player
             for _ in 0..5 {
                 let random_dir = Vec3::new(
-                    rand::random::<f32>() * 2.0 - 1.0,
-                    rand::random::<f32>() * 2.0 - 1.0,
-                    rand::random::<f32>() * 2.0 - 1.0,
+                    rng.gen::<f32>() * 2.0 - 1.0,
+                    rng.gen::<f32>() * 2.0 - 1.0,
+                    rng.gen::<f32>() * 2.0 - 1.0,
                 ).normalize();
                 
                 commands.spawn((
                     Mesh3d(meshes.add(Sphere::new(0.1))),
                     MeshMaterial3d(materials.add(StandardMaterial {
                         base_color: Color::srgb(1.0, 0.3, 0.0),
-                        emissive: Color::srgb(1.0, 0.3, 0.0),
+                        emissive: Color::srgb(1.0, 0.3, 0.0).into(),
                         ..default()
                     })),
                     Transform::from_translation(crim_pos + Vec3::new(0.0, 0.5, 0.0)),
@@ -763,9 +764,9 @@ fn camera_control(
         transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, 0.0);
         
         // Grab cursor for continuous rotation
-        let window = windows.single_mut();
-        window.cursor.grab_mode = bevy::window::CursorGrabMode::Locked;
-        window.cursor.visible = false;
+        let mut window = windows.single_mut();
+        window.cursor_options.grab_mode = bevy::window::CursorGrabMode::Locked;
+        window.cursor_options.visible = false;
     }
 }
 
@@ -890,10 +891,10 @@ fn particle_system(
     for (entity, mut transform, mut particle) in particles.iter_mut() {
         // Update age
         if particle.created == 0.0 {
-            particle.created = time.elapsed_seconds();
+            particle.created = time.elapsed_secs();
         }
         
-        let age = time.elapsed_seconds() - particle.created;
+        let age = time.elapsed_secs() - particle.created;
         
         // Apply velocity
         transform.translation += particle.velocity * time.delta_secs();
@@ -916,22 +917,21 @@ fn setup_environment(
 ) {
     // Add ambient light
     commands.insert_resource(AmbientLight {
-        color: Color::rgb(0.6, 0.6, 0.9),
+        color: Color::srgb(0.6, 0.6, 0.9),
         brightness: 0.3,
     });
     
     // Add a distant directional light for sun effect
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            color: Color::rgb(1.0, 0.95, 0.8),
+    commands.spawn((
+        DirectionalLight {
+            color: Color::srgb(1.0, 0.95, 0.8),
             illuminance: 10000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(10.0, 50.0, 10.0)
+        Transform::from_xyz(10.0, 50.0, 10.0)
             .looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    ));
 }
 
 fn main() {
@@ -944,7 +944,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(EguiPlugin)
+        .add_plugins(bevy_egui::EguiPlugin)
         .insert_resource(GameWorld {
             blocks: HashMap::new(),
         })
@@ -970,7 +970,7 @@ fn main() {
             physics_system,
             block_selection_system,
             ui_system,
-            particle_system,
+            particle_system
         ))
         .run();
 }
