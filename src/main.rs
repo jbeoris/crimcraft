@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::input::mouse::MouseMotion;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
-use rand::prelude::*;
+use rand::Rng;
 use std::collections::HashMap;
 
 // Constants
@@ -39,7 +39,7 @@ struct ParticleEffect {
 
 #[derive(Component)]
 struct Block {
-    block_type: BlockType,
+    pub block_type: BlockType,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
@@ -70,9 +70,9 @@ struct GameWorld {
 // Resource for tracking player stats
 #[derive(Resource)]
 struct PlayerStats {
-    health: f32,
-    max_health: f32,
-    inventory: HashMap<BlockType, u32>,
+    pub health: f32,
+    pub max_health: f32,
+    pub inventory: HashMap<BlockType, u32>,
 }
 
 // Resource for game UI
@@ -85,8 +85,8 @@ struct GameUI {
 // Resource for game settings
 #[derive(Resource)]
 struct GameSettings {
-    render_distance: i32,
-    gravity_enabled: bool,
+    pub render_distance: i32,
+    pub gravity_enabled: bool,
 }
 
 // Systems
@@ -95,7 +95,15 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut game_world: ResMut<GameWorld>,
+    mut player_stats: ResMut<PlayerStats>,
+    game_settings: Res<GameSettings>,
 ) {
+    // Add starting materials to player inventory
+    player_stats.inventory.insert(BlockType::Dirt, 20);
+    player_stats.inventory.insert(BlockType::Stone, 10);
+    
+    // Log the render distance
+    println!("Initializing world with render distance: {}", game_settings.render_distance);
     // First-person camera will be attached to the player in the camera_follow system
 
     // Spawn light
@@ -183,7 +191,7 @@ fn generate_world(
     materials: &mut ResMut<Assets<StandardMaterial>>,
     game_world: &mut ResMut<GameWorld>,
 ) {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let cube_mesh = meshes.add(Cuboid::default());
     
     // Create materials for all block types
@@ -239,27 +247,27 @@ fn generate_world(
     // Generate terrain
     for x in -WORLD_SIZE..WORLD_SIZE {
         for z in -WORLD_SIZE..WORLD_SIZE {
-            let height = (rng.gen::<f32>() * 3.0).floor() as i32;
+            let height = (rng.random::<f32>() * 3.0).floor() as i32;
             
             // Create ground layer with more varied terrain
             for y in 0..=height {
                 // More varied terrain generation
                 let block_type = if y == height && height > 0 {
-                    if rng.gen_bool(0.6) { BlockType::Grass } else { BlockType::Dirt }
+                    if rng.random_bool(0.6) { BlockType::Grass } else { BlockType::Dirt }
                 } else if y == height && height == 0 {
-                    if rng.gen_bool(0.7) { BlockType::Sand } else { BlockType::Dirt }
+                    if rng.random_bool(0.7) { BlockType::Sand } else { BlockType::Dirt }
                 } else if y == 0 {
-                    if rng.gen_bool(0.05) { BlockType::Obsidian } else { BlockType::Stone }
-                } else if y < height - 2 && rng.gen_bool(0.05) {
+                    if rng.random_bool(0.05) { BlockType::Obsidian } else { BlockType::Stone }
+                } else if y < height - 2 && rng.random_bool(0.05) {
                     BlockType::Ore
-                } else if rng.gen_bool(0.8) {
+                } else if rng.random_bool(0.8) {
                     BlockType::Stone
                 } else {
                     BlockType::Dirt
                 };
                 
                 // Create water pools in low areas
-                let is_water_level = height < 1 && y == 1 && rng.gen_bool(0.4);
+                let is_water_level = height < 1 && y == 1 && rng.random_bool(0.4);
                 let final_block_type = if is_water_level { BlockType::Water } else { block_type };
                 
                 game_world.blocks.insert((x, y, z), final_block_type);
@@ -293,8 +301,8 @@ fn generate_world(
 
     // Add some trees and structures
     for _ in 0..20 {
-        let x = rng.gen_range(-WORLD_SIZE+2..WORLD_SIZE-2);
-        let z = rng.gen_range(-WORLD_SIZE+2..WORLD_SIZE-2);
+        let x = rng.random_range(-WORLD_SIZE+2..WORLD_SIZE-2);
+        let z = rng.random_range(-WORLD_SIZE+2..WORLD_SIZE-2);
         
         if let Some(base_height) = game_world.blocks.keys()
             .filter(|(bx, _, bz)| *bx == x && *bz == z)
@@ -302,7 +310,7 @@ fn generate_world(
             .max()
         {
             // Decide what to generate - trees or small structures
-            let structure_type = rng.gen_range(0..10);
+            let structure_type = rng.random_range(0..10);
             
             match structure_type {
                 // Trees (70% chance)
@@ -360,7 +368,7 @@ fn generate_world(
                 
                 // Stone pillar (20% chance)
                 7..=8 => {
-                    let height = rng.gen_range(4..8);
+                    let height = rng.random_range(4..8);
                     for y in base_height + 1..base_height + height {
                         game_world.blocks.insert((x, y, z), BlockType::Stone);
                         
@@ -397,7 +405,7 @@ fn generate_world(
                 
                 // Glass tower (10% chance)
                 9 => {
-                    let height = rng.gen_range(3..6);
+                    let height = rng.random_range(3..6);
                     for y in base_height + 1..base_height + height {
                         game_world.blocks.insert((x, y, z), BlockType::Glass);
                         
@@ -519,11 +527,12 @@ fn crim_ai(
             crim.spotted_player = true;
             
             // Emit particles when spotting player
+            let mut rng = rand::rng();
             for _ in 0..5 {
                 let random_dir = Vec3::new(
-                    rng.gen::<f32>() * 2.0 - 1.0,
-                    rng.gen::<f32>() * 2.0 - 1.0,
-                    rng.gen::<f32>() * 2.0 - 1.0,
+                    rng.random::<f32>() * 2.0 - 1.0,
+                    rng.random::<f32>() * 2.0 - 1.0,
+                    rng.random::<f32>() * 2.0 - 1.0,
                 ).normalize();
                 
                 commands.spawn((
@@ -570,6 +579,7 @@ fn block_interaction(
     mut game_world: ResMut<GameWorld>,
     blocks_query: Query<(Entity, &Position, &Block)>,
     player_components: Query<&Player>,
+    mut player_stats: ResMut<PlayerStats>,
 ) {
     let player = player_components.single();
     
@@ -622,9 +632,19 @@ fn block_interaction(
         }
         
         if let Some((entity, position)) = closest_block {
-            // Remove the block from the world
-            game_world.blocks.remove(&(position.x, position.y, position.z));
-            commands.entity(entity).despawn();
+            // Get the block type
+            if let Ok((_, _, block)) = blocks_query.get(entity) {
+                let block_type = block.block_type;
+                
+                // Remove the block from the world
+                game_world.blocks.remove(&(position.x, position.y, position.z));
+                
+                // Add block to inventory
+                let entry = player_stats.inventory.entry(block_type).or_insert(0);
+                *entry += 1;
+                
+                commands.entity(entity).despawn();
+            }
         }
     }
     
@@ -636,7 +656,7 @@ fn block_interaction(
         
         // Raycast to find where to place the block
         let ray_start = camera_pos;
-        let ray_end = camera_pos + camera_forward * 5.0;
+        let _ray_end = camera_pos + camera_forward * 5.0;
         
         // Simple raycast implementation for block placement
         let mut ray_pos = ray_start;
@@ -664,11 +684,23 @@ fn block_interaction(
         if let Some(block_pos) = block_to_place {
             // Check if there's already a block at this position
             if !game_world.blocks.contains_key(&block_pos) {
-                // Add a new block of the selected type
-                game_world.blocks.insert(block_pos, player.selected_block_type);
+                // Check if player has this block type in inventory
+                let has_block = player_stats.inventory.get(&player.selected_block_type).copied().unwrap_or(0) > 0;
                 
-                // Use player's selected block type
-                let material = match player.selected_block_type {
+                if has_block {
+                    // Remove block from inventory
+                    if let Some(count) = player_stats.inventory.get_mut(&player.selected_block_type) {
+                        *count -= 1;
+                        if *count == 0 {
+                            player_stats.inventory.remove(&player.selected_block_type);
+                        }
+                    }
+                    
+                    // Add a new block of the selected type
+                    game_world.blocks.insert(block_pos, player.selected_block_type);
+                    
+                    // Use player's selected block type
+                    let material = match player.selected_block_type {
                     BlockType::Dirt => materials.add(StandardMaterial {
                         base_color: Color::srgb(0.6, 0.3, 0.1),
                         ..default()
@@ -730,6 +762,7 @@ fn block_interaction(
                     Block { block_type: player.selected_block_type },
                     Position { x: block_pos.0, y: block_pos.1, z: block_pos.2 },
                 ));
+                }
             }
         }
     }
@@ -850,10 +883,13 @@ fn block_selection_system(
 
 // Display UI
 fn ui_system(
-    mut commands: Commands,
+    _commands: Commands,
     game_ui: Res<GameUI>,
     player_query: Query<&Player>,
     mut contexts: EguiContexts,
+    player_stats: Res<PlayerStats>,
+    game_settings: Res<GameSettings>,
+    game_world: Res<GameWorld>,
 ) {
     if game_ui.show_debug {
         let player = player_query.single();
@@ -863,6 +899,23 @@ fn ui_system(
             ui.label(format!("Selected Block: {:?}", player.selected_block_type));
             ui.label(format!("Is Grounded: {}", player.is_grounded));
             ui.label(format!("Velocity: {:?}", player.velocity));
+            ui.separator();
+            ui.label(format!("Health: {}/{}", player_stats.health, player_stats.max_health));
+            ui.label(format!("Inventory Items: {}", player_stats.inventory.len()));
+            ui.separator();
+            ui.label(format!("Render Distance: {}", game_settings.render_distance));
+            ui.label(format!("Gravity Enabled: {}", game_settings.gravity_enabled));
+            ui.separator();
+            ui.label(format!("Total Blocks: {}", game_world.blocks.len()));
+            
+            // Display blocks in inventory
+            if !player_stats.inventory.is_empty() {
+                ui.collapsing("Inventory", |ui| {
+                    for (block_type, count) in &player_stats.inventory {
+                        ui.label(format!("{:?}: {}", block_type, count));
+                    }
+                });
+            }
         });
     }
     
@@ -912,8 +965,8 @@ fn particle_system(
 // Setup a skybox and ambient lighting
 fn setup_environment(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    _meshes: ResMut<Assets<Mesh>>,
+    _materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Add ambient light
     commands.insert_resource(AmbientLight {
@@ -944,7 +997,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(bevy_egui::EguiPlugin)
+        .add_plugins(EguiPlugin)
         .insert_resource(GameWorld {
             blocks: HashMap::new(),
         })
